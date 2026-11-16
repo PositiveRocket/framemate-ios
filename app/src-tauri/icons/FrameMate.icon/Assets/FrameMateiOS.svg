@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1{fill:#000000}
+      .cls-2{fill:#00adee}
+    </style>
+  </defs>
+  <title>FrameMateiOS</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <g id="FrameMate_Icon" data-name="FrameMate Icon">
+      <path id="Frame" d="M125 108 L955 108 C964.389 108 972 115.611 972 125 L972 302.451 C972 311.892 964.346 319.546 954.904 319.546 L336.524 319.546 C327.147 319.546 319.546 327.147 319.546 336.524 L319.546 954.925 C319.546 964.355 311.902 972 302.471 972 L125 972 C115.611 972 108 964.389 108 955 L108 125 C108 115.611 115.611 108 125 108 Z" class="cls-1"/>
+      <path id="Quarter" d="M406.392 972 C406.392 659.615 659.615 406.392 972 406.392 L972 954.878 C972 964.334 964.334 972 954.878 972 Z" class="cls-2"/>
+    </g>
+  </g>
+</svg>

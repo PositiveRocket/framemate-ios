@@ -1,7 +1,8 @@
-/** Opens `url` in the system browser: via the Android bridge, else a new browser tab/window. */
+import { openExternalUrl } from "$lib/native";
+
+/** Opens `url` in the system browser (Android bridge, iOS opener plugin, else a new tab). */
 export function openExternal(url: string) {
-  if (window.FrameMateAndroid?.openUrl) window.FrameMateAndroid.openUrl(url);
-  else window.open(url, "_blank", "noopener");
+  openExternalUrl(url);
 }
 
 /** onclick for `<a href>`: keeps the href, opens externally. */

@@ -4,3 +4,15 @@ ref/
 \#*\#
 .\#*
 .direnv/
+
+# iOS build artifacts
+/build/
+# Temporary cargo config written by scripts/ios/build-app.sh
+/app/src-tauri/.cargo/
+# Theos intermediates
+/tweak/.theos/
+/tweak/obj/
+/tweak/packages/
+
+# macOS Finder metadata
+.DS_Store

@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { invoke } from "@tauri-apps/api/core";
   import { onMount, type Snippet } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -43,6 +44,9 @@
   }
 
   onMount(() => {
+    // iOS: have the native side stretch the webview over the whole screen again, now that the
+    // page exists (see `fill_the_screen` in src-tauri/src/lib.rs).
+    invoke("refit_webview").catch(() => {});
     notifications.refresh();
     // Pairing lives on the Rust side now, so the connection details arrive asynchronously.
     agent.start().then(() => {

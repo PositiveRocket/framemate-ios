@@ -3,6 +3,7 @@
   import Row from "$lib/components/Row.svelte";
   import Section from "$lib/components/Section.svelte";
   import { openExternal } from "$lib/external";
+  import { openAppSettings } from "$lib/native";
   import { describeResult, notifications } from "$lib/notifications.svelte";
   import { APP_VERSION, updates } from "$lib/updates.svelte";
 
@@ -84,7 +85,7 @@
       <p class="status offline">
         Scanning needs the camera. Allow <b>Camera</b> in the app's permissions, or enter the code by hand.
       </p>
-      <button class="button secondary" type="button" onclick={() => window.FrameMateAndroid?.openAppSettings?.()}>
+      <button class="button secondary" type="button" onclick={() => openAppSettings()}>
         Open app settings
       </button>
     {/if}
@@ -95,7 +96,7 @@
       <p class="status offline">
         Android blocks FrameMate from your local network. Allow <b>Nearby devices</b> in the app's permissions.
       </p>
-      <button class="button secondary" type="button" onclick={() => window.FrameMateAndroid?.openAppSettings?.()}>
+      <button class="button secondary" type="button" onclick={() => openAppSettings()}>
         Open app settings
       </button>
     {:else}
@@ -111,12 +112,18 @@
     <Row label="Show in the headset" value={notifications.enabled ? "On" : "Off (bell in the top bar)"} />
     {#if !notifications.access}
       <div class="actions">
-        <p class="hint">FrameMate needs notification access to read your notifications. They only go to your Frame,
-          encrypted, and are never stored.</p>
-        <button class="button" onclick={() => notifications.openAccessSettings()}>Grant notification access</button>
-        <p class="hint">If Android greys FrameMate out there, open the app info, tap ⋮ and choose
-          <b>Allow restricted settings</b>, then try again.</p>
-        <button class="button secondary" onclick={() => window.FrameMateAndroid?.openAppSettings?.()}>Open app info</button>
+        {#if notifications.platform === "ios"}
+          <p class="hint">Notification forwarding on iOS needs the FrameMate notification tweak. It ships in the same
+            package as this app — install it on a jailbroken device, then respring. Notifications only go to your
+            Frame, encrypted, and are never stored.</p>
+        {:else}
+          <p class="hint">FrameMate needs notification access to read your notifications. They only go to your Frame,
+            encrypted, and are never stored.</p>
+          <button class="button" onclick={() => notifications.openAccessSettings()}>Grant notification access</button>
+          <p class="hint">If Android greys FrameMate out there, open the app info, tap ⋮ and choose
+            <b>Allow restricted settings</b>, then try again.</p>
+          <button class="button secondary" onclick={() => openAppSettings()}>Open app info</button>
+        {/if}
       </div>
     {:else}
       <button class="row expander" aria-expanded={appsOpen} onclick={() => (appsOpen = !appsOpen)}>

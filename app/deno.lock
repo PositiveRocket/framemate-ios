@@ -1,16 +1,23 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@sveltejs/adapter-static@^3.0.10": "3.0.10_@sveltejs+kit@2.70.3__@sveltejs+vite-plugin-svelte@7.3.1___svelte@5.57.1___vite@8.3.2__svelte@5.57.1__typescript@6.0.3__vite@8.3.2_@sveltejs+vite-plugin-svelte@7.3.1__svelte@5.57.1__vite@8.3.2_svelte@5.57.1_typescript@6.0.3_vite@8.3.2",
-    "npm:@sveltejs/kit@^2.65.1": "2.70.3_@sveltejs+vite-plugin-svelte@7.3.1__svelte@5.57.1__vite@8.3.2_svelte@5.57.1_typescript@6.0.3_vite@8.3.2",
+    "jsr:@deno/installer-shell-setup@*": "0.3.4",
+    "npm:@sveltejs/adapter-static@^3.0.10": "3.0.10_@sveltejs+kit@2.70.3_@sveltejs+vite-plugin-svelte@7.3.1_svelte@5.57.1_typescript@6.0.3_vite@8.3.2",
+    "npm:@sveltejs/kit@^2.65.1": "2.70.3_@sveltejs+vite-plugin-svelte@7.3.1_svelte@5.57.1_typescript@6.0.3_vite@8.3.2",
     "npm:@sveltejs/vite-plugin-svelte@^7.1.2": "7.3.1_svelte@5.57.1_vite@8.3.2",
     "npm:@tauri-apps/api@2": "2.12.1",
     "npm:@tauri-apps/cli@2": "2.12.1",
     "npm:@tauri-apps/plugin-barcode-scanner@2": "2.5.1",
+    "npm:@tauri-apps/plugin-opener@2": "2.7.3",
     "npm:svelte-check@^4.6.0": "4.7.6_svelte@5.57.1_typescript@6.0.3",
     "npm:svelte@^5.56.3": "5.57.1",
     "npm:typescript@~6.0.3": "6.0.3",
     "npm:vite@^8.0.16": "8.3.2"
+  },
+  "jsr": {
+    "@deno/installer-shell-setup@0.3.4": {
+      "integrity": "48665d1a737d487cce6874bc97bba70a5aeffa7053aca3f60df93c6fab8963b4"
+    }
   },
   "npm": {
     "@jridgewell/gen-mapping@0.3.13": {
@@ -133,13 +140,13 @@
         "acorn"
       ]
     },
-    "@sveltejs/adapter-static@3.0.10_@sveltejs+kit@2.70.3__@sveltejs+vite-plugin-svelte@7.3.1___svelte@5.57.1___vite@8.3.2__svelte@5.57.1__typescript@6.0.3__vite@8.3.2_@sveltejs+vite-plugin-svelte@7.3.1__svelte@5.57.1__vite@8.3.2_svelte@5.57.1_typescript@6.0.3_vite@8.3.2": {
+    "@sveltejs/adapter-static@3.0.10_@sveltejs+kit@2.70.3_@sveltejs+vite-plugin-svelte@7.3.1_svelte@5.57.1_typescript@6.0.3_vite@8.3.2": {
       "integrity": "sha512-7D9lYFWJmB7zxZyTE/qxjksvMqzMuYrrsyh1f4AlZqeZeACPRySjbC3aFiY55wb1tWUaKOQG9PVbm74JcN2Iew==",
       "dependencies": [
         "@sveltejs/kit"
       ]
     },
-    "@sveltejs/kit@2.70.3_@sveltejs+vite-plugin-svelte@7.3.1__svelte@5.57.1__vite@8.3.2_svelte@5.57.1_typescript@6.0.3_vite@8.3.2": {
+    "@sveltejs/kit@2.70.3_@sveltejs+vite-plugin-svelte@7.3.1_svelte@5.57.1_typescript@6.0.3_vite@8.3.2": {
       "integrity": "sha512-UDvEYuZqAMbfB/oXIoqKvbKcb7YczK5zYrzmsGV1zRJk03jntwp8dXiYoIJotxAndsKvcPFtx9H1GRSKFdSHgg==",
       "dependencies": [
         "@standard-schema/spec",
@@ -255,6 +262,12 @@
     },
     "@tauri-apps/plugin-barcode-scanner@2.5.1": {
       "integrity": "sha512-VepKHdSGAKqFcPIXS3Nd0GA5uqQ840cJnHKY1B1Tf1Am9y2RSCyTht4FQd/tMpbu7g9vAmk3HI+qvN71jiQIyA==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
+    },
+    "@tauri-apps/plugin-opener@2.7.3": {
+      "integrity": "sha512-Nm+v7vLBCDzYZxrmCJhpMgtPsPsKt5myMs7SMU/aBjPOmAFI1RrHfhMz7t5KlxjMOzRcelyNq1/j0pmC9SmBVA==",
       "dependencies": [
         "@tauri-apps/api"
       ]
@@ -576,6 +589,7 @@
         "npm:@tauri-apps/api@2",
         "npm:@tauri-apps/cli@2",
         "npm:@tauri-apps/plugin-barcode-scanner@2",
+        "npm:@tauri-apps/plugin-opener@2",
         "npm:svelte-check@^4.6.0",
         "npm:svelte@^5.56.3",
         "npm:typescript@~6.0.3",

@@ -1,6 +1,9 @@
-// Phone notifications as toasts in the headset (Android only). The settings live on the Kotlin
-// side (NotificationPrefs.kt) because the listener service runs without the WebView; this
+// Phone notifications as toasts in the headset. The settings live on the native side (Android:
+// NotificationPrefs.kt; iOS: the shared prefs file via Tauri commands) because the notification
+// source runs without the WebView — the Android listener service, the iOS SpringBoard tweak. This
 // mirrors them for the top bar's bell and the Settings page.
+
+import * as native from "$lib/native";
 
 export interface NotificationSettings {
   /** The bell: off by default, and quick to switch off when someone else wears the headset. */
@@ -11,53 +14,54 @@ export interface NotificationSettings {
   last: { result: string; time: number } | null;
 }
 
-const bridge = () => window.FrameMateAndroid;
-
 class Notifications {
-  readonly supported = typeof window !== "undefined" && !!window.FrameMateAndroid?.notificationSettings;
+  readonly supported = native.notificationsSupported();
+  readonly platform = native.platform();
   settings = $state<NotificationSettings | null>(null);
   access = $state(false);
   testing = $state(false);
 
   constructor() {
-    // Known before the first render: Settings opens its section depending on `access`.
-    this.refresh();
+    // Fire-and-forget: Settings opens its section depending on `access`, and the reactive state
+    // updates the UI as soon as the native side answers.
+    void this.refresh();
   }
 
   get enabled() {
     return this.settings?.enabled ?? false;
   }
 
-  refresh() {
+  async refresh() {
     if (!this.supported) return;
     try {
-      this.settings = JSON.parse(bridge()!.notificationSettings!());
-      this.access = bridge()!.notificationAccessGranted?.() ?? false;
+      const json = await native.getNotificationSettings();
+      if (json) this.settings = JSON.parse(json);
+      this.access = await native.notificationAccessGranted();
     } catch {}
   }
 
-  setEnabled(enabled: boolean) {
-    bridge()?.setNotificationsEnabled?.(enabled);
-    this.refresh();
+  async setEnabled(enabled: boolean) {
+    await native.setNotificationsEnabled(enabled);
+    await this.refresh();
   }
 
-  setApp(pkg: string, enabled: boolean) {
-    bridge()?.setNotificationAppEnabled?.(pkg, enabled);
-    this.refresh();
+  async setApp(pkg: string, enabled: boolean) {
+    await native.setNotificationApp(pkg, enabled);
+    await this.refresh();
   }
 
   openAccessSettings() {
-    bridge()?.openNotificationAccessSettings?.();
+    native.openNotificationAccessSettings();
   }
 
   async sendTest() {
     const before = this.settings?.last?.time ?? 0;
     this.testing = true;
-    bridge()?.sendTestNotification?.();
-    // The send runs on a Kotlin thread (up to ~15 s); poll for its result.
+    await native.sendTestNotification();
+    // The send runs on a native thread (up to ~15 s); poll for its result.
     for (let i = 0; i < 40 && (this.settings?.last?.time ?? 0) <= before; i++) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      this.refresh();
+      await this.refresh();
     }
     this.testing = false;
   }

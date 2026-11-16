@@ -1,14 +1,19 @@
 //! Phone notifications → toast in the headset (`POST /api/notify` on the agent).
 //!
-//! Called by the Kotlin `NotificationListenerService` through JNI. Android can start that service
-//! without the app's window, so Tauri, the WebView and the loopback proxy may not exist: this
-//! reads the pairing straight from disk and talks pinned TLS itself, reusing proxy.rs.
+//! The entry point is platform-agnostic. It reads the pairing straight from disk and talks pinned
+//! TLS itself (reusing [`crate::proxy`]), so it works without the app window, the WebView or the
+//! loopback proxy being up — which matters because the notification source runs on its own:
+//!   * on Android, a `NotificationListenerService` calls [`send`] through JNI (glue lives in the
+//!     app crate),
+//!   * on iOS, the app's "send a test notification" uses it; real notifications are sent by the
+//!     SpringBoard tweak's own Objective-C implementation of the same request (`tweak/Tweak.xm`).
 
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use crate::pairing::{self, Pairing};
 use crate::proxy::Target;
+use crate::store;
 
 /// The last target, kept so the address that worked (mDNS name or IP) is tried first next time.
 static TARGET: Mutex<Option<(Pairing, std::sync::Arc<Target>)>> = Mutex::new(None);
@@ -24,9 +29,11 @@ fn runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
-/// Sends one toast. `config_dir` holds `pairing.json`, returns a short status
+/// Sends one toast. `config_dir` holds `pairing.json`; returns a short status word (`shown`,
+/// `headset_asleep`, `rate_limited`, `not_paired`, or `error: …`). Blocks for up to ~15 s; never
+/// call it on a UI thread.
 pub fn send(config_dir: &Path, json: &str) -> String {
-    let Some(pairing) = pairing::load(&config_dir.join("pairing.json")) else {
+    let Some(pairing) = pairing::load(&store::pairing_path(config_dir)) else {
         return "not_paired".into();
     };
     let target = {
@@ -57,29 +64,29 @@ pub fn send(config_dir: &Path, json: &str) -> String {
     }
 }
 
-#[cfg(target_os = "android")]
-mod jni_glue {
-    use jni::JNIEnv;
-    use jni::objects::{JClass, JString};
-    use jni::sys::jstring;
+/// [`send`], then store the outcome in the preferences so the settings page can show it. This is
+/// what the iOS app's "send test" uses; the Android side records the result itself
+/// (in Kotlin) after [`send`] returns.
+pub fn send_and_record(config_dir: &Path, json: &str) -> String {
+    let result = send(config_dir, json);
+    crate::prefs::record_result(config_dir, &result);
+    result
+}
 
-    /// `dev.framemate.app.NotificationBridge.send(dataDir, json)`; blocking
-    #[unsafe(no_mangle)]
-    pub extern "system" fn Java_dev_framemate_app_NotificationBridge_send<'local>(
-        mut env: JNIEnv<'local>,
-        _class: JClass<'local>,
-        data_dir: JString<'local>,
-        json: JString<'local>,
-    ) -> jstring {
-        let result = match (env.get_string(&data_dir), env.get_string(&json)) {
-            (Ok(dir), Ok(json)) => {
-                let (dir, json): (String, String) = (dir.into(), json.into());
-                super::send(std::path::Path::new(&dir), &json)
-            }
-            _ => "error: bad arguments".into(),
-        };
-        env.new_string(result).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
+/// The master-switch-aware test toast, sent the same way a real notification would be. Returns
+/// `disabled` without sending when the bell is off, matching the Android `sendTest`.
+pub fn send_test(config_dir: &Path) -> String {
+    if !crate::prefs::enabled(config_dir) {
+        crate::prefs::record_result(config_dir, "disabled");
+        return "disabled".into();
     }
+    let json = serde_json::json!({
+        "app": "FrameMate",
+        "title": "FrameMate",
+        "body": "Notifications from your phone will show up like this.",
+    })
+    .to_string();
+    send_and_record(config_dir, &json)
 }
 
 #[cfg(test)]
