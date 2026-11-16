@@ -138,8 +138,7 @@ The app icon's source is `app/src-tauri/icons/FrameMate.icon` (Apple Icon Compos
 `app/src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset` are a flattened render of it (the
 liquid-glass look needs iOS 18); after changing the `.icon`, regenerate them with
 `scripts/ios/render-icon.sh`. Only the iOS icon comes from there: Android, desktop and the in-app
-logo use upstream's artwork. The icon is based on the FrameMate logo, which
-[`LICENSE-EXCEPTION.md`](../LICENSE-EXCEPTION.md) §2 reserves.
+logo use upstream's artwork.
 
 ## Installing
 

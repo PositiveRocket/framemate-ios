@@ -23,9 +23,8 @@
 > It is **not endorsed by** the original author. Under
 > [`LICENSE-EXCEPTION.md`](LICENSE-EXCEPTION.md) §2 the name **FrameMate**, the FrameMate logo and
 > the `dev.framemate.*` application identifiers are reserved by the original author. This fork still
-> uses them (and its iOS icon is based on the logo), so **don't redistribute builds of it as a
-> separate project** without renaming it, replacing the logo and the iOS icon, and choosing your own
-> identifiers. See [Changes in this fork](#changes-in-this-fork).
+> uses them, so **don't redistribute builds of it as a separate project** without renaming it,
+> replacing the logo and choosing your own identifiers. See [Changes in this fork](#changes-in-this-fork).
 
 ## At a glance
 
@@ -251,8 +250,7 @@ Relative to [`nailuj05/framemate`](https://github.com/nailuj05/framemate):
   `NotificationPrefs.kt` for the iOS app. Behaviour is unchanged.
 - **Notification tweak** under `tweak/`, and iOS build/packaging scripts under `scripts/ios/`.
 - **iOS app icon:** `app/src-tauri/icons/FrameMate.icon` (Apple Icon Composer), rendered into the
-  iOS icon set by `scripts/ios/render-icon.sh`. It is a simplified version of the FrameMate logo
-  and, like the logo, falls under §2.
+  iOS icon set by `scripts/ios/render-icon.sh`.
 - The agent, the Android app and all other artwork are upstream's, unchanged.
 
 ## Contributing
@@ -299,7 +297,6 @@ assistance.
 - Steam Frame Controller Icons: [Kenney Input Prompts](https://kenney.nl/assets/input-prompts) (CC0)
 - Game artwork is loaded from Steam's public CDN.
 - FrameMate Icon made by the original author (reserved — see [`LICENSE-EXCEPTION.md`](LICENSE-EXCEPTION.md) §2).
-  The iOS app icon in this fork is a simplified version of it.
 - iOS notification tweak modelled on [ForwardNotifier](https://github.com/Greg0109/ForwardNotifier) by Greg0109 (GPL-3.0).
 
 FrameMate is not affiliated with or endorsed by Valve. Steam, SteamOS and Steam Frame are trademarks of
