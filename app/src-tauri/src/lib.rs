@@ -124,9 +124,19 @@ fn notification_access_granted() -> bool {
 #[tauri::command]
 fn send_test_notification(app: State<'_, App>) {
     let dir = app.config_dir.clone();
+    // A test is a deliberate attempt: it goes out even while the tweak has paused forwarding, and
+    // if it gets through, the pause is over.
+    prefs::clear_pause(&dir);
     tauri::async_runtime::spawn_blocking(move || {
         forward::send_test(&dir);
     });
+}
+
+/// The app has reached the Frame, so it is reachable: end a pause the iOS tweak set (see
+/// `prefs::clear_pause`). The UI calls this when its connection to the Frame comes up.
+#[tauri::command]
+fn resume_notifications(app: State<'_, App>) {
+    prefs::clear_pause(&app.config_dir);
 }
 
 /// iOS grants LAN access through a one-time system prompt the first time the app connects; there
@@ -286,6 +296,7 @@ pub fn run() {
             notification_access_granted,
             send_test_notification,
             local_network_allowed,
+            resume_notifications,
             refit_webview,
         ])
         .setup(|app| {

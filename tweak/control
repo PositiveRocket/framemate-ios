@@ -1,9 +1,0 @@
-Package: dev.framemate.tweak
-Name: FrameMate Notifications
-Version: 0.3.0
-Architecture: iphoneos-arm64
-Description: Forwards phone notifications to a paired Steam Frame (SpringBoard hook).
-Maintainer: PositiveRocket (iOS port) <https://github.com/PositiveRocket/framemate-ios>
-Author: nailuj05 and the FrameMate contributors; iOS port by PositiveRocket
-Section: Tweaks
-Depends: ellekit

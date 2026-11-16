@@ -49,6 +49,11 @@ export async function notificationAccessGranted(): Promise<boolean> {
   return false;
 }
 
+/** iOS: the Frame is reachable (the app is connected to it), so end a pause the tweak set. */
+export async function resumeNotifications(): Promise<void> {
+  if (isIOS()) await invoke("resume_notifications");
+}
+
 export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
   const a = android();
   if (a?.setNotificationsEnabled) {

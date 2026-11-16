@@ -32,6 +32,20 @@ pub struct Prefs {
     pub last_result: Option<String>,
     #[serde(default)]
     pub last_time: u64,
+    /// iOS: set by the SpringBoard tweak when the Frame couldn't be reached, in epoch ms; while
+    /// set, the tweak skips notifications and only checks now and then whether the Frame answers
+    /// again (see "Pausing" in tweak/Tweak.xm). The app clears it once it reaches the Frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused_since: Option<u64>,
+    /// iOS: no reachability check before this time (epoch ms), and how many checks have failed.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub pause_next_check: u64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub pause_step: u64,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl Prefs {
@@ -106,6 +120,18 @@ pub fn remember_app(dir: &Path, pkg: &str, label: &str) {
     });
 }
 
+/// Ends a pause set by the iOS tweak (the Frame is reachable again). No write when not paused.
+pub fn clear_pause(dir: &Path) {
+    if load(dir).paused_since.is_none() {
+        return;
+    }
+    update(dir, |p| {
+        p.paused_since = None;
+        p.pause_next_check = 0;
+        p.pause_step = 0;
+    });
+}
+
 pub fn record_result(dir: &Path, result: &str) {
     update(dir, |p| {
         p.last_result = Some(result.to_owned());
@@ -113,7 +139,8 @@ pub fn record_result(dir: &Path, result: &str) {
     });
 }
 
-/// For the settings page: `{enabled, apps: [{pkg, label, enabled}], last: {result, time} | null}`.
+/// For the settings page: `{enabled, apps: [{pkg, label, enabled}], last: {result, time} | null,
+/// paused: {since} | null}`.
 /// Apps are sorted by label, case-insensitively, as on Android.
 pub fn to_json(dir: &Path) -> String {
     let p = load(dir);
@@ -129,7 +156,8 @@ pub fn to_json(dir: &Path) -> String {
         .last_result
         .as_ref()
         .map(|result| serde_json::json!({ "result": result, "time": p.last_time }));
-    serde_json::json!({ "enabled": p.enabled, "apps": apps, "last": last }).to_string()
+    let paused = p.paused_since.map(|since| serde_json::json!({ "since": since }));
+    serde_json::json!({ "enabled": p.enabled, "apps": apps, "last": last, "paused": paused }).to_string()
 }
 
 fn now_ms() -> u64 {
@@ -171,6 +199,30 @@ mod tests {
         set_app_enabled(&dir, "com.example.chat", false);
         assert!(!should_forward(&dir, "com.example.chat")); // this app off
         assert!(should_forward(&dir, "com.other.app")); // but others still go
+    }
+
+    #[test]
+    fn keeps_and_clears_the_tweaks_pause() {
+        let dir = tmp("pause");
+        // As the tweak writes it: extra keys in the same file.
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            crate::store::prefs_path(&dir),
+            r#"{"enabled":true,"paused_since":1700000000000,"pause_next_check":1700000060000,"pause_step":1}"#,
+        )
+        .unwrap();
+        // An unrelated change by the app must not drop the pause.
+        set_app_enabled(&dir, "com.example.chat", false);
+        let v: serde_json::Value = serde_json::from_str(&to_json(&dir)).unwrap();
+        assert_eq!(v["paused"]["since"], 1700000000000u64);
+        let raw: serde_json::Value = serde_json::from_slice(&std::fs::read(crate::store::prefs_path(&dir)).unwrap()).unwrap();
+        assert_eq!(raw["pause_next_check"], 1700000060000u64);
+        assert_eq!(raw["pause_step"], 1);
+        clear_pause(&dir);
+        let raw: serde_json::Value = serde_json::from_slice(&std::fs::read(crate::store::prefs_path(&dir)).unwrap()).unwrap();
+        assert!(raw.get("paused_since").is_none() && raw.get("pause_next_check").is_none() && raw.get("pause_step").is_none());
+        assert!(serde_json::from_str::<serde_json::Value>(&to_json(&dir)).unwrap()["paused"].is_null());
+        assert!(enabled(&dir));
     }
 
     #[test]

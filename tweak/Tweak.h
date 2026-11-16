@@ -13,6 +13,8 @@
 
 @interface BBBulletin : NSObject
 @property (nonatomic, copy) NSString *sectionID;   // the posting app's bundle id
+@property (nonatomic, copy) NSString *recordID;    // this notification, stable across re-posts
+@property (nonatomic, copy) NSString *publisherBulletinID;
 @property (nonatomic, retain) BBContent *content;
 @property (nonatomic, copy) NSDate *date;
 @property (nonatomic, copy) NSString *title;        // older path; falls back to content.title

@@ -15,7 +15,7 @@
 >
 > **This is an unofficial fork, not the original project.** It is a fork of
 > [`nailuj05/framemate`](https://github.com/nailuj05/framemate) that adds **iOS support** — the app
-> for **jailbroken iOS 16** (installed with TrollStore) and a SpringBoard **notification tweak** —
+> for **jailbroken iOS 16** and a SpringBoard **notification tweak**, in one package —
 > see [iOS support](#ios-support-this-fork) and [`docs/iOS.md`](docs/iOS.md). The Steam Frame
 > agent, the Android app, the mirroring/pairing code and the Svelte UI are the work of
 > [nailuj05](https://github.com/nailuj05) and the FrameMate contributors.
@@ -139,13 +139,13 @@ curl -LsSf https://raw.githubusercontent.com/nailuj05/framemate/main/scripts/ins
    from step 1. The code contains all information the app needs to find your frame, authenticate with it and verify its certificate.
 
 **iOS** (this fork, jailbroken iOS 16, rootless — e.g. Dopamine or palera1n): the app and the
-notification forwarding are two packages, built with `scripts/ios/package.sh`
+notification forwarding come in one package, built with `scripts/ios/package.sh`
 ([`docs/iOS.md`](docs/iOS.md) has the details):
 
-1. Install `FrameMate.ipa` with **TrollStore**.
-2. Install `framemate-tweak_<version>_iphoneos-arm64.deb` with Sileo/Zebra (or `dpkg -i`) and
-   **respring**. It's only needed for notifications in VR.
-3. Open the app, and in the **Settings** tab scan the pairing code, as on Android.
+1. Make sure **AppSync Unified** is installed (from any repo); it's what lets the package
+   install the app. Then install `framemate_<version>_iphoneos-arm64.deb` with Sileo or Zebra and
+   **respring**.
+2. Open the app, and in the **Settings** tab scan the pairing code, as on Android.
 
 The app doesn't need to be running for notifications to reach the Frame: the tweak works inside
 SpringBoard. After the phone restarts, unlock it once before notifications are forwarded (iOS keeps
@@ -193,8 +193,8 @@ deno task tauri android build --apk --target aarch64
 deno task tauri dev                   # desktop window for UI work
 ```
 
-For the **iOS** build (jailbroken iOS 16) — the app for TrollStore and the notification tweak as a
-`.deb` — run `scripts/ios/package.sh` on a Mac; see [`docs/iOS.md`](docs/iOS.md). It additionally
+For the **iOS** build (jailbroken iOS 16) — one `.deb` with the app and the notification tweak —
+run `scripts/ios/package.sh` on a Mac; see [`docs/iOS.md`](docs/iOS.md). It additionally
 needs Xcode, Theos, `ldid`, `dpkg`, `xcodegen` and ImageMagick.
 
 `scripts/*.sh` reach the Frame as `steamos@frame.local` (override with `FRAME_HOST`).
@@ -219,8 +219,10 @@ Authenticate with `?token=<token>` or `Authorization: Bearer <token>`.
 
 This fork adds iOS support for **jailbroken iOS 16**, with the same features as Android:
 
-- **The app** is the same Tauri app (Svelte UI, pinned-TLS pairing, mirroring), built for iOS and
-  installed with **TrollStore**. Everything from the feature list works.
+- **The app** is the same Tauri app (Svelte UI, pinned-TLS pairing, mirroring), built for iOS.
+  It ships in the same `.deb` as the notification tweak, which installs it through iOS's own
+  installer (with AppSync Unified) so it gets a normal app container. Everything from the
+  feature list works.
 - **Mirroring** uses the same stream from the agent. iPhones before iOS 17.1 can't play it the
   way Android does (no Media Source Extensions), so there the app decodes the H.264 itself with
   WebCodecs, which needs iOS 16.4 or newer.

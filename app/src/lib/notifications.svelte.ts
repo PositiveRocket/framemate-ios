@@ -12,6 +12,8 @@ export interface NotificationSettings {
   apps: { pkg: string; label: string; enabled: boolean }[];
   /** Outcome of the last send: shown, headset_asleep, rate_limited, not_paired, error: … */
   last: { result: string; time: number } | null;
+  /** iOS: forwarding paused because the Frame wasn't reachable (set by the tweak). */
+  paused?: { since: number } | null;
 }
 
 class Notifications {
@@ -29,6 +31,15 @@ class Notifications {
 
   get enabled() {
     return this.settings?.enabled ?? false;
+  }
+
+  /** The app reached the Frame: end a pause the iOS tweak set because it couldn't. */
+  async resume() {
+    if (!this.settings?.paused) return;
+    try {
+      await native.resumeNotifications();
+    } catch {}
+    await this.refresh();
   }
 
   async refresh() {

@@ -43,6 +43,11 @@
     }
   }
 
+  // Connected to the Frame means it's reachable: lift a pause the iOS tweak set while it wasn't.
+  $effect(() => {
+    if (agent.status === "connected" && notifications.settings?.paused) notifications.resume();
+  });
+
   onMount(() => {
     // iOS: have the native side stretch the webview over the whole screen again, now that the
     // page exists (see `fill_the_screen` in src-tauri/src/lib.rs).

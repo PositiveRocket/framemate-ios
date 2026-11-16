@@ -1,13 +1,14 @@
 # FrameMate on iOS (jailbroken, iOS 16)
 
-This is the iOS port of FrameMate. It comes in two parts:
+This is the iOS port of FrameMate. It installs as **one package**, `framemate_<version>_iphoneos-arm64.deb`,
+which contains:
 
-| Part | What it does | How it is installed |
-|---|---|---|
-| **FrameMate.ipa** — the companion app | mirroring, batteries, downloads, system stats, pairing, notification settings | **TrollStore** |
-| **framemate-tweak … .deb** — the notification tweak | forwards the phone's notifications to the headset | **Sileo / Zebra / dpkg**, then respring |
+| Part | What it does |
+|---|---|
+| **the FrameMate app** | mirroring, batteries, downloads, system stats, pairing, notification settings |
+| **the notification tweak** (`FrameMate.dylib`) | forwards the phone's notifications to the headset, from inside SpringBoard |
 
-## Why a jailbreak, and why two packages
+## Why a jailbreak, and how the app gets installed
 
 Reading *other apps'* notifications is impossible from a normal, sandboxed iOS app — there is no
 public API for it, and TrollStore entitlements don't change that. The only way is a **tweak
@@ -15,10 +16,17 @@ injected into SpringBoard**, which requires a jailbreak. So the notification hal
 tweak (modelled on [ForwardNotifier](https://github.com/Greg0109/ForwardNotifier)), shipped as a
 `.deb`.
 
-The app is *not* in that `.deb`. An app laid down by a package under `/var/jb/Applications` runs in
-a sandbox where WKWebView cannot start its helper processes (`com.apple.WebKit.WebContent`/`GPU`/
-`Networking`), so the UI never renders — a black screen — and no fakesigned entitlement fixes it.
-Installed through TrollStore the app gets a normal container and works.
+The app isn't simply copied into `/var/jb/Applications`, as many tweak apps are. An app laid down
+that way runs in a sandbox where WKWebView cannot start its helper processes
+(`com.apple.WebKit.WebContent`/`GPU`/`Networking`), so the UI never renders — a black screen — and
+no fakesigned entitlement fixes it. Installed through iOS's own installer (installd) it gets a
+normal app container and works. So the package carries `FrameMate.ipa`, and its `postinst` hands it
+to installd with `framemate-installer` (`tweak/installer.m`), the same way
+[AppSync Unified](https://github.com/akemin-dayo/AppSync)'s `appinst` does; removing the package
+runs it again to uninstall the app. installd only accepts the fakesigned app with **AppSync
+Unified** installed. That isn't a package dependency: AppSync is published by several repos under
+different package IDs, so a dependency on one ID fails on devices that have it from another.
+`postinst` looks for AppSync's files instead and says so if they're missing.
 
 ## Architecture
 
@@ -26,7 +34,7 @@ The upstream app is a Tauri 2 app (Svelte frontend + Rust shell), which is alrea
 only the notification capture and a little native glue were Android-specific.
 
 ```
-   FrameMate.app (TrollStore)                        SpringBoard
+   FrameMate.app (installd)                          SpringBoard
   ┌──────────────────────────────┐                 ┌───────────────────────────────┐
   │ Svelte UI                    │                 │ FrameMate.dylib (tweak, ObjC) │
   │ Tauri commands (lib.rs)      │                 │  hooks -[BBServer             │
@@ -71,10 +79,37 @@ Change one side and the other has to follow.
 ### Shared configuration
 
 The app keeps both files in `Documents/FrameMate` inside its own container (`$HOME/Documents/
-FrameMate`). The tweak, inside SpringBoard, finds the same directory from the app's container URL
-(`LSApplicationProxy.dataContainerURL`).
+FrameMate`). iOS names an app's data container after the identifier in its code signature, so the
+package signs the app as `dev.framemate.app` (`ldid -I`); signed with ldid's default, the
+executable's name, the app ran in a container labelled "FrameMate" while LaunchServices reported
+another one for the bundle id. The tweak, inside SpringBoard, looks for `pairing.json` in the
+container iOS reports, and as a safety net in every app data container (and `/var/mobile`), using
+the newest pairing it finds. The search runs once and is remembered.
+
+On disk there are only these two files. `notifications.json` is written when a setting changes,
+when an app posts its first notification, and when the result of a send or the pause changes. The
+tweak's log lines (`idevicesyslog -m "FrameMate: "`) use iOS's in-memory levels and are never saved.
 
 > The app must be **launched once and paired** before the tweak has anything to forward to.
+
+### Forwarding notifications
+
+The tweak follows the Android listener (`FrameNotificationListener.kt`):
+
+- Duplicates are recognised per notification and its post time, so an app re-posting the same
+  notification (progress, updates) sends one toast, while a new message with the same text as an
+  earlier one still goes through.
+- At most 10 notifications wait to be sent; beyond that the oldest give way. One that waited more
+  than 30 seconds for its turn is dropped. Notifications dated more than 2 minutes back when they
+  arrive are what iOS replays after a respring, and are ignored.
+
+One addition: when the Frame can't be reached (asleep, off, on another network), forwarding
+**pauses** instead of waiting up to 5 seconds per address for every notification. While paused,
+notifications are skipped without touching the network, and a quick check (1.5 seconds at most)
+is made on the next notification after 1, then 2, then every 5 minutes. The pause ends when that
+check succeeds, when the phone joins Wi-Fi, when the app connects to the Frame, or on "Send a test
+notification". It never changes the bell; the Settings page shows "Paused" while it lasts. The
+state lives in `notifications.json` (`paused_since`, `pause_next_check`, `pause_step`).
 
 ### Mirroring on iPhone
 
@@ -124,12 +159,13 @@ so WebKit re-measures.
 scripts/ios/package.sh
 ```
 
-This builds the tweak (arm64 + arm64e) and the unsigned app, and writes
-`build/ios/FrameMate.ipa` and `build/ios/framemate-tweak_0.3.0_iphoneos-arm64.deb`.
+This builds the tweak and `framemate-installer` (arm64 + arm64e) and the app, and writes
+`build/ios/framemate_0.3.0_iphoneos-arm64.deb`. The app on its own, `build/ios/FrameMate.ipa`, is a
+by-product, for installing it with TrollStore instead (without notifications in VR).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FRAMEMATE_ROOTLESS=0` | rootless | Build a **rootful** tweak package instead of rootless (Dopamine / rootless palera1n). |
+| `FRAMEMATE_ROOTLESS=0` | rootless | Build a **rootful** package instead of rootless (Dopamine / rootless palera1n). |
 | `FRAMEMATE_SKIP_BUILD=1` | off | Reuse what's already in `build/ios` (just re-sign and re-package). |
 
 The individual steps are `scripts/ios/build-tweak.sh` and `scripts/ios/build-app.sh`.
@@ -142,13 +178,24 @@ logo use upstream's artwork.
 
 ## Installing
 
-1. **App:** open `FrameMate.ipa` in TrollStore and install.
-2. **Tweak:** install the `.deb` with Sileo/Zebra, or over SSH:
-   ```sh
-   dpkg -i framemate-tweak_0.3.0_iphoneos-arm64.deb
-   ```
-   then **respring**. Its dependency, `ellekit` (rootless) / `mobilesubstrate` (rootful), is
-   already present on a jailbroken device.
+You need **AppSync Unified** installed and enabled, from whichever repo you use. Then install
+`framemate_0.3.0_iphoneos-arm64.deb` with Sileo or Zebra, and **respring**: Sileo offers a
+**Respring** button when it's done (the package's `postinst` asks for it through Sileo's `$SILEO`
+channel); with other package managers, respring yourself. Its only package
+dependency is `ellekit` (rootless) / `mobilesubstrate` (rootful), which a jailbroken device
+already has. Over SSH:
+
+```sh
+dpkg -i framemate_0.3.0_iphoneos-arm64.deb
+```
+
+Installing puts FrameMate on the home screen; removing the package removes it. Updating the
+package keeps the app's data, so the pairing survives. (Once only: the first update that signs
+the app as `dev.framemate.app` moves it to a new container, so it needs pairing again.)
+
+> **Coming from the two-package version** (app from TrollStore + `framemate-tweak` .deb): delete
+> FrameMate in TrollStore first. The new package replaces the old tweak by itself. Deleting the
+> app clears the pairing, so scan the code again afterwards.
 
 ## Using it
 
@@ -166,8 +213,9 @@ Checked on the build machine: the core's unit tests; the tweak's TLS code agains
 server (right key accepted, wrong key and wrong token refused, fallback between addresses); the
 fMP4 reader against segments from the agent's own muxer; and the WebCodecs player on real H.264 in
 Chromium and Safari, including a simulated stalling decoder. On an iPhone (iOS 16.4.1, rootless
-jailbreak) against a Steam Frame: pairing, mirroring, the app filling the screen, and notifications
-reaching the headset with the app closed.
+jailbreak) against a Steam Frame: installing and updating the single package, pairing, mirroring,
+the app filling the screen, notifications reaching the headset with the app closed, and the pause
+while the Frame is off.
 
 Worth checking on a device after any change to the tweak:
 

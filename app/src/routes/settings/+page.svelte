@@ -154,6 +154,12 @@
         {#if notifications.settings.last && !notifications.testing}
           <p class="hint">Last: {describeResult(notifications.settings.last.result)}</p>
         {/if}
+        {#if notifications.settings.paused && !notifications.testing}
+          <p class="hint">
+            Paused: the Frame wasn't reachable. Forwarding resumes when it answers again, when the
+            phone joins Wi‑Fi, or when this app connects to it.
+          </p>
+        {/if}
       </div>
     {/if}
   </Section>

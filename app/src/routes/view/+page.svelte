@@ -131,6 +131,27 @@
     // canvas keeps its buffer busy: after ~120 frames the decoder silently stops. So each frame
     // is copied into an ImageBitmap, released at once, and the copy is drawn.
     let viaBitmap = typeof createImageBitmap === "function";
+    // Downscale while copying (createImageBitmap's resize options), until the browser shows it
+    // doesn't support that.
+    let resizeOnCopy = true;
+
+    // Frames are drawn at the size the player is shown at, in device pixels, never above the
+    // stream's own: a 1080p stream in the portrait player (~1284×723 px on a big iPhone) would
+    // otherwise copy and draw ~2.2× the pixels every frame, only for the browser to scale them
+    // down again. Tracked with a ResizeObserver rather than measured per frame.
+    let shown = { width: 0, height: 0 };
+    const observer = new ResizeObserver(([entry]) => {
+      const box = entry.contentRect;
+      shown = { width: box.width * devicePixelRatio, height: box.height * devicePixelRatio };
+    });
+    observer.observe(canvas);
+
+    /** The size to draw a `width`×`height` frame at: fits the player, keeps the aspect ratio. */
+    function target(width: number, height: number) {
+      if (!shown.width || !shown.height) return { width, height }; // not laid out yet
+      const scale = Math.min(1, shown.width / width, shown.height / height);
+      return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+    }
 
     function draw(source: CanvasImageSource, width: number, height: number) {
       if (canvas.width !== width || canvas.height !== height) {
@@ -138,17 +159,16 @@
         canvas.height = height;
       }
       try {
-        context?.drawImage(source, 0, 0);
+        context?.drawImage(source, 0, 0, width, height);
       } catch (e) {
         // A frame that can't be drawn is skipped; the next one replaces it anyway.
       }
     }
 
     function show(frame: VideoFrame) {
-      const width = frame.displayWidth;
-      const height = frame.displayHeight;
+      const size = target(frame.displayWidth, frame.displayHeight);
       if (!viaBitmap) {
-        draw(frame, width, height);
+        draw(frame, size.width, size.height);
         frame.close();
         return;
       }
@@ -157,15 +177,24 @@
         return;
       }
       converting++;
-      createImageBitmap(frame)
+      const copy = (resize: boolean) =>
+        resize
+          ? createImageBitmap(frame, { resizeWidth: size.width, resizeHeight: size.height, resizeQuality: "low" })
+          : createImageBitmap(frame);
+      copy(resizeOnCopy)
+        .catch(error => {
+          if (!resizeOnCopy) throw error;
+          resizeOnCopy = false; // resizing while copying isn't supported: copy, then scale on draw
+          return copy(false);
+        })
         .then(bitmap => {
           frame.close();
-          draw(bitmap, width, height);
+          draw(bitmap, size.width, size.height);
           bitmap.close();
         })
         .catch(() => {
           viaBitmap = false; // no bitmap copies here: draw frames directly from now on
-          draw(frame, width, height);
+          draw(frame, size.width, size.height);
           frame.close();
         })
         .finally(() => converting--);
@@ -258,6 +287,7 @@
       },
       close() {
         clearInterval(watchdog);
+        observer.disconnect();
         if (decoder && decoder.state !== "closed") decoder.close();
       },
     };
