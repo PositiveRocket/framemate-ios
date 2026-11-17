@@ -6,7 +6,7 @@
   import { page } from "$app/state";
   import { agent } from "$lib/agent.svelte";
   import { parameterSetsAnnexB, parseInit, parseSegment, sampleToAnnexB } from "$lib/fmp4";
-  import { isIOS } from "$lib/native";
+  import { isIOS, setFullscreen } from "$lib/native";
   import Icon from "$lib/components/Icon.svelte";
   import Row from "$lib/components/Row.svelte";
   import Section from "$lib/components/Section.svelte";
@@ -29,14 +29,14 @@
     pushState("", { fullscreen: true });
   }
 
+  // Whether fullscreen is in effect, remembered here: when this page is left, `page.state` already
+  // belongs to the next page, so it can't tell whether fullscreen still has to be undone.
+  let inFullscreen = false;
+
   function applyFullscreen(enabled: boolean) {
-    if (window.FrameMateAndroid) {
-      window.FrameMateAndroid.setFullscreen(enabled);
-    } else if (enabled && !document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-    } else if (!enabled && document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
+    if (enabled === inFullscreen) return;
+    inFullscreen = enabled;
+    void setFullscreen(enabled);
   }
 
   $effect(() => applyFullscreen(fullscreen));
@@ -404,7 +404,7 @@
 
   onMount(connect);
   onDestroy(() => {
-    if (fullscreen) applyFullscreen(false);
+    applyFullscreen(false);
     closed = true;
     clearTimeout(retry);
     if (socket) socket.onclose = socket.onerror = socket.onmessage = null;
@@ -478,9 +478,10 @@
     right: 8px;
     bottom: 8px;
   }
+  /* Clear of the notch / Dynamic Island, which is on a side in landscape. */
   .exit {
-    left: 12px;
-    top: 12px;
+    left: calc(12px + env(safe-area-inset-left));
+    top: calc(12px + env(safe-area-inset-top));
   }
   .overlay {
     position: absolute;

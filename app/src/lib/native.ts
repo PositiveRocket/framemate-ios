@@ -49,6 +49,29 @@ export async function notificationAccessGranted(): Promise<boolean> {
   return false;
 }
 
+/**
+ * The mirroring fullscreen: landscape without system bars, and back to portrait when it ends.
+ * Android: MainActivity's bridge. iOS: a Tauri command that rotates the app itself (the WebView's
+ * own fullscreen mode would open a separate layer that outlives the page). Elsewhere: the browser's
+ * fullscreen.
+ */
+export async function setFullscreen(enabled: boolean): Promise<void> {
+  const a = android();
+  if (a?.setFullscreen) {
+    a.setFullscreen(enabled);
+    return;
+  }
+  if (isIOS()) {
+    await invoke("set_fullscreen", { enabled });
+    return;
+  }
+  if (enabled && !document.fullscreenElement) {
+    await document.documentElement.requestFullscreen?.().catch(() => {});
+  } else if (!enabled && document.fullscreenElement) {
+    await document.exitFullscreen().catch(() => {});
+  }
+}
+
 /** iOS: the Frame is reachable (the app is connected to it), so end a pause the tweak set. */
 export async function resumeNotifications(): Promise<void> {
   if (isIOS()) await invoke("resume_notifications");

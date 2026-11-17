@@ -131,6 +131,14 @@ iOS 16.4's WebCodecs decoder has three quirks the player works around
 - A WebSocket error is not always followed by a close event, so an error alone counts as a lost
   connection and triggers the reconnect.
 
+### Orientation
+
+As on Android, the app stays in portrait, and the mirroring fullscreen switches it to landscape
+(hiding the status bar and home indicator) and back. The app does this itself (`set_fullscreen` in
+`src-tauri/src/lib.rs`, through tao's view controller and iOS 16's window-scene geometry request),
+rather than with WebKit's element fullscreen, whose separate fullscreen layer outlived the page and
+could leave the app stuck in landscape.
+
 ### Filling the screen
 
 The page lays itself out under the status bar and home indicator (`viewport-fit=cover`) and pads
@@ -228,7 +236,5 @@ Worth checking on a device after any change to the tweak:
 
 Known gaps versus Android:
 
-- **Mirroring fullscreen orientation** is not forced to landscape on iOS (the WebView rotates with
-  the device).
 - The "notification access" concept on iOS is simply *the tweak being installed*; there is no OS
   permission screen, and the Settings page says so.

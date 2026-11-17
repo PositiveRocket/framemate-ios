@@ -177,6 +177,75 @@ fn refit_webview(webview: tauri::Webview) {
     let _ = webview;
 }
 
+/// Portrait normally, landscape (without status bar and home indicator) for the mirroring
+/// fullscreen: the iOS counterpart of `MainActivity.setFullscreen` on Android, which locks the app
+/// to portrait and switches to landscape for fullscreen. Leaving fullscreen always returns to
+/// portrait, whatever the phone's rotation lock.
+#[tauri::command]
+fn set_fullscreen(enabled: bool, webview: tauri::Webview) {
+    #[cfg(target_os = "ios")]
+    let _ = webview.with_webview(move |platform| orientation::apply(platform, enabled));
+    #[cfg(not(target_os = "ios"))]
+    let _ = (enabled, webview);
+}
+
+#[cfg(target_os = "ios")]
+mod orientation {
+    use objc2::runtime::{AnyClass, AnyObject};
+    use objc2::{msg_send, sel};
+
+    /// `UIInterfaceOrientationMaskPortrait`, and `…LandscapeLeft | …LandscapeRight`.
+    const PORTRAIT: usize = 1 << 1;
+    const LANDSCAPE: usize = (1 << 3) | (1 << 4);
+
+    unsafe fn responds(object: *mut AnyObject, selector: objc2::runtime::Sel) -> bool {
+        !object.is_null() && unsafe { msg_send![object, respondsToSelector: selector] }
+    }
+
+    pub fn apply(platform: tauri::webview::PlatformWebview, landscape: bool) {
+        let controller = platform.view_controller() as *mut AnyObject;
+        let mask = if landscape { LANDSCAPE } else { PORTRAIT };
+        unsafe {
+            // tao's view controller keeps these as properties and reports them to UIKit.
+            if responds(controller, sel!(setSupportedInterfaceOrientations:)) {
+                let _: () = msg_send![controller, setSupportedInterfaceOrientations: mask];
+            }
+            if responds(controller, sel!(setPrefersStatusBarHidden:)) {
+                let _: () = msg_send![controller, setPrefersStatusBarHidden: landscape];
+            }
+            if responds(controller, sel!(setPrefersHomeIndicatorAutoHidden:)) {
+                let _: () = msg_send![controller, setPrefersHomeIndicatorAutoHidden: landscape];
+            }
+            // iOS 16 only rotates on request: tell UIKit the supported set changed, then ask the
+            // window scene for the new orientation (older iOS rotates through tao's setter above).
+            if responds(controller, sel!(setNeedsUpdateOfSupportedInterfaceOrientations)) {
+                let _: () = msg_send![controller, setNeedsUpdateOfSupportedInterfaceOrientations];
+            }
+            let Some(preferences_class) = AnyClass::get(c"UIWindowSceneGeometryPreferencesIOS") else { return };
+            let view: *mut AnyObject = msg_send![controller, view];
+            if view.is_null() {
+                return;
+            }
+            let window: *mut AnyObject = msg_send![view, window];
+            if window.is_null() {
+                return;
+            }
+            let scene: *mut AnyObject = msg_send![window, windowScene];
+            if !responds(scene, sel!(requestGeometryUpdateWithPreferences:errorHandler:)) {
+                return;
+            }
+            let preferences: *mut AnyObject = msg_send![preferences_class, alloc];
+            let preferences: *mut AnyObject = msg_send![preferences, initWithInterfaceOrientations: mask];
+            if preferences.is_null() {
+                return;
+            }
+            let no_handler: *mut AnyObject = std::ptr::null_mut();
+            let _: () = msg_send![scene, requestGeometryUpdateWithPreferences: preferences, errorHandler: no_handler];
+            let _: () = msg_send![preferences, release];
+        }
+    }
+}
+
 #[cfg(target_os = "ios")]
 mod geometry {
     use objc2::encode::{Encode, Encoding};
@@ -232,6 +301,12 @@ fn fill_the_screen(webview: &tauri::Webview) {
     let _ = webview.with_webview(fit_webview);
 }
 
+/// Starts out in portrait, like the Android app.
+#[cfg(target_os = "ios")]
+fn start_in_portrait(webview: &tauri::Webview) {
+    let _ = webview.with_webview(|platform| orientation::apply(platform, false));
+}
+
 /// The work of `fill_the_screen`, on the native WKWebView.
 #[cfg(target_os = "ios")]
 fn fit_webview(platform: tauri::webview::PlatformWebview) {
@@ -284,7 +359,10 @@ pub fn run() {
     // Applied when a page starts loading, i.e. before its first layout, and again whenever one
     // finishes; setting it twice is harmless.
     #[cfg(target_os = "ios")]
-    let builder = builder.on_page_load(|webview, _payload| fill_the_screen(webview));
+    let builder = builder.on_page_load(|webview, _payload| {
+        fill_the_screen(webview);
+        start_in_portrait(webview);
+    });
     builder
         .invoke_handler(tauri::generate_handler![
             connection,
@@ -297,6 +375,7 @@ pub fn run() {
             send_test_notification,
             local_network_allowed,
             resume_notifications,
+            set_fullscreen,
             refit_webview,
         ])
         .setup(|app| {
